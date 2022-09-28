@@ -1,0 +1,45 @@
+create or replace PROCEDURE "CROSSWALK_TABLE_UPDT" 
+(
+tablename IN VARCHAR2,
+columnname IN VARCHAR2
+)
+is
+   v_int1 number;
+   v_int2 number;
+   v_int number;
+   v_text varchar2(300);
+
+ BEGIN
+  SELECT MIN(ORG_KEY) INTO v_int1 FROM TCCMSMASK.TCCMS_MASK_DTL_TABLE where TABLE_NAME=tablename  AND TYPE=columnname AND MASKED IS NULL;
+ SELECT  MAX(ORG_KEY) INTO v_int2  FROM TCCMSMASK.TCCMS_MASK_DTL_TABLE where TABLE_NAME=tablename  AND TYPE=columnname AND MASKED IS NULL;
+
+       WHILE v_int1 <= v_int2
+         LOOP    
+
+        begin
+        select d.original,d.org_key into v_text, v_int 
+        --SELECT d.original,d.org_key
+          from TCCMSMASK.TCCMS_MASK_DTL_TABLE d 
+       where TABLE_NAME=tablename  AND TYPE=columnname
+       and rownum=1
+       and d.org_key <> v_int1
+       --and d.org_key between l_to and l_from
+       AND NOT EXISTS(SELECT 1 FROM TCCMSMASK.TCCMS_MASK_DTL_TABLE C 
+       WHERE C.MASK_KEY = D.ORG_KEY AND C.masked=D.ORIGINAL
+       AND C.TABLE_NAME=tablename  AND C.TYPE=columnname);
+        exception 
+       when no_data_found
+       then DBMS_OUTPUT.put_line ('No data found');
+       end;
+
+
+     update TCCMSMASK.TCCMS_MASK_DTL_TABLE a
+         set a.masked= v_text , a.mask_key=v_int
+         where a.TABLE_NAME=tablename 
+         AND a.TYPE=columnname
+         and a.masked is null
+         and a.org_key = v_int1;
+         commit;
+         v_int1:=v_int1 + 1;
+   END LOOP; 
+END CROSSWALK_TABLE_UPDT;
